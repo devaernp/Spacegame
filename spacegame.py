@@ -63,7 +63,7 @@ class Solid():
     def draw(self,surf):
         surf.blit (pygame.transform.rotate(self.pic,self.direction),(self.posx,self.posy))
 
-    def collide(self):
+    def collide(self, solid):
         pass
         
 class Avatar(Solid):
@@ -73,20 +73,72 @@ class Avatar(Solid):
         self.projectiles = []
         self.speed = 1
         self.projectileSpeed = 5
-        self.ammo = 5
+        self.ammo = 2
+        self.shield = 50.0
+        self.hull = 100.0
+        self.alive = True
         
     def fire(self):
-        if len(self.projectiles) <= 5:
+        if len(self.projectiles) <= self.ammo:
             shot = Projectile(self.centerx-2,self.centery-3,4,6)
             self.projectiles.append(shot)
             shot.launch (self.projectileSpeed,self.direction)
             shot.setBlock ((255,0,0))
-    
+
+    def damage (self, power):
+        if self.shield > 0:
+            self.shield -= power
+            if self.shield < 0:
+                self.sheild = 0
+        elif self.shield <= 0:
+            self.hull -= power
+            if self.hull < 0:
+                self.hull = 0
+                
+    def checkAlive (self):
+        if self.hull <= 0:
+            self.alive = False
+        else:
+            self.alive = True
+            
+    def collide(self, solid):
+        if solid.__class__ == Projectile:
+            self.damage(solid.power)
+            self.checkAlive()
+        
 class Projectile(Solid):
     def launch (self,s,d):
         self.velx += s*math.cos(math.radians(d))
         self.vely += -s*math.sin(math.radians(d))
+        self.power = 5
         
+class StatusHUD():
+    width = 80
+    height = 80
+    def __init__(self,player):
+        self.name = player.name
+        self.num = player.num
+        self.avatar = player.avatar
+        self.hud = pygame.Surface((StatusHUD.width,StatusHUD.height))
+        self.fillcolour = (5*25,5*25,5*25)
+        self.hud.fill(self.fillcolour)
+        self.posx = 0
+        self.posy = (StatusHUD.height + 5)*(self.num)
+
+    def updateHUD(self):
+        self.hud.fill(self.fillcolour)
+        pygame.draw.rect(self.hud,(0,0,0),(10,50,60,10))
+        
+        if self.avatar.hull > 0:
+            pygame.draw.rect(self.hud,(255,0,0),(10,50,60*(self.avatar.hull/100.0),10))
+        if self.avatar.shield >0:
+            pygame.draw.rect(self.hud,(0,255,255),(10,50,60*(self.avatar.shield/100.0),10))
+        
+        
+    def draw(self,surf):
+        self.updateHUD()
+        surf.blit(self.hud,(self.posx,self.posy))
+
         
 class Player():
 
@@ -98,7 +150,8 @@ class Player():
         self.key_right = ord ('d')
         self.key_left = ord ('a')
         self.key_fire = ord ('e')
-        
+
+        self.num = Player.num
         self.name = "Player " + str(Player.num)
         Player.num += 1
 
@@ -120,30 +173,32 @@ class Player():
         self.avatar = a
         
     def playerEvent(self,event):
-        if event.type == KEYDOWN:
-            if event.key == self.key_up:
-                self.avatar.addVely(-self.avatar.speed)
-                self.avatar.direction = 90
-            elif event.key == self.key_down:
-                self.avatar.addVely(self.avatar.speed)
-                self.avatar.direction = 270
-            elif event.key == self.key_right:
-                self.avatar.addVelx(self.avatar.speed)
-                self.avatar.direction = 0
-            elif event.key == self.key_left:
-                self.avatar.addVelx(-self.avatar.speed)
-                self.avatar.direction = 180
-            elif event.key == self.key_fire:
-                self.avatar.fire()
-        elif event.type == KEYUP:
-            if event.key == self.key_up:
-                self.avatar.addVely(self.avatar.speed)
-            elif event.key == self.key_down:
-                self.avatar.addVely(-self.avatar.speed)
-            elif event.key == self.key_right:
-                self.avatar.addVelx(-self.avatar.speed)    
-            elif event.key == self.key_left:
-                self.avatar.addVelx(self.avatar.speed)
+        if self.avatar.alive:
+            if event.type == KEYDOWN:
+                if event.key == self.key_up:
+                    self.avatar.addVely(-self.avatar.speed)
+                    self.avatar.direction = 90
+                elif event.key == self.key_down:
+                    self.avatar.addVely(self.avatar.speed)
+                    self.avatar.direction = 270
+                elif event.key == self.key_right:
+                    self.avatar.addVelx(self.avatar.speed)
+                    self.avatar.direction = 0
+                elif event.key == self.key_left:
+                    self.avatar.addVelx(-self.avatar.speed)
+                    self.avatar.direction = 180
+                elif event.key == self.key_fire:
+                    self.avatar.fire()
+            elif event.type == KEYUP:
+                if event.key == self.key_up:
+                    self.avatar.addVely(self.avatar.speed)
+                elif event.key == self.key_down:
+                    self.avatar.addVely(-self.avatar.speed)
+                elif event.key == self.key_right:
+                    self.avatar.addVelx(-self.avatar.speed)    
+                elif event.key == self.key_left:
+                    self.avatar.addVelx(self.avatar.speed)
+
     
 def eventHandler(players):
     for event in pygame.event.get():
@@ -167,35 +222,47 @@ def main():
     people[1].setControls('y','h','g','j','u')
     people[2].setControls('p',';','l',"'",'[')
     people[3].setControlsDirect(K_UP,K_DOWN,K_LEFT,K_RIGHT,K_RCTRL)
+
+    statusbar =[]
+    for p in people:
+        statusbar.append(StatusHUD(p))
+        
+    
     while True:
         DISPLAYSURF.fill ((100,160,255))
         eventHandler(people)
         
         for p in people:
-            p.avatar.move()
-            if offscreenCheck (DISPLAYSURF,p.avatar):
-                p.avatar.reverse()
-            else:
-                for p2 in people:
-                    if not (p == p2) and collisionCheck (p.avatar,p2.avatar):
-                        p.avatar.reverse()
-            
-            for b in p.avatar.projectiles:
-                b.move()
-                if offscreenCheck (DISPLAYSURF,b):
-                    p.avatar.projectiles.remove(b)
+            if p.avatar.alive:                    
+                p.avatar.move()
+                if offscreenCheck (DISPLAYSURF,p.avatar):
+                    p.avatar.reverse()
                 else:
                     for p2 in people:
-                        if not (p == p2) and collisionCheck (p2.avatar,b):
-                            print"HIT"
-                            p.avatar.projectiles.remove(b)
-                            break
-                            
+                        if not (p == p2) and p2.avatar.alive and collisionCheck (p.avatar,p2.avatar):
+                            p.avatar.reverse()
+                
+                for b in p.avatar.projectiles:
+                    b.move()
+                    if offscreenCheck (DISPLAYSURF,b):
+                        p.avatar.projectiles.remove(b)
+                    else:
+                        for p2 in people:
+                            if not (p == p2) and p2.avatar.alive and collisionCheck (p2.avatar,b):
+                                #print"HIT"
+                                p2.avatar.collide(b)
+                                p.avatar.projectiles.remove(b)
+                                break
+                                
         for p in people:
-            p.avatar.draw(DISPLAYSURF)
+            if p.avatar.alive:
+                p.avatar.draw(DISPLAYSURF)
+            
             for b in p.avatar.projectiles:
                 b.draw(DISPLAYSURF)
-                
+        for item in statusbar:
+            item.draw(DISPLAYSURF)
+            
         pygame.display.update()
     
 
