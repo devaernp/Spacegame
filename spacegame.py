@@ -115,9 +115,12 @@ class Projectile(Solid):
 class StatusHUD():
     width = 80
     height = 80
+    
     def __init__(self,player):
         self.name = player.name
         self.num = player.num
+        self.font = pygame.font.Font(pygame.font.match_font("arial"),14,bold=True)
+        self.nameInFont = self.font.render(self.name,False,(0,0,0))
         self.avatar = player.avatar
         self.hud = pygame.Surface((StatusHUD.width,StatusHUD.height))
         self.fillcolour = (5*25,5*25,5*25)
@@ -128,12 +131,11 @@ class StatusHUD():
     def updateHUD(self):
         self.hud.fill(self.fillcolour)
         pygame.draw.rect(self.hud,(0,0,0),(10,50,60,10))
-        
+        self.hud.blit(self.nameInFont,(12,10))
         if self.avatar.hull > 0:
             pygame.draw.rect(self.hud,(255,0,0),(10,50,60*(self.avatar.hull/100.0),10))
         if self.avatar.shield >0:
             pygame.draw.rect(self.hud,(0,255,255),(10,50,60*(self.avatar.shield/100.0),10))
-        
         
     def draw(self,surf):
         self.updateHUD()
@@ -242,17 +244,17 @@ def main():
                         if not (p == p2) and p2.avatar.alive and collisionCheck (p.avatar,p2.avatar):
                             p.avatar.reverse()
                 
-                for b in p.avatar.projectiles:
-                    b.move()
-                    if offscreenCheck (DISPLAYSURF,b):
-                        p.avatar.projectiles.remove(b)
-                    else:
-                        for p2 in people:
-                            if not (p == p2) and p2.avatar.alive and collisionCheck (p2.avatar,b):
-                                #print"HIT"
-                                p2.avatar.collide(b)
-                                p.avatar.projectiles.remove(b)
-                                break
+            for b in p.avatar.projectiles:
+                b.move()
+                if offscreenCheck (DISPLAYSURF,b):
+                    p.avatar.projectiles.remove(b)
+                else:
+                    for p2 in people:
+                        if not (p == p2) and p2.avatar.alive and collisionCheck (p2.avatar,b):
+                            #print"HIT"
+                            p2.avatar.collide(b)
+                            p.avatar.projectiles.remove(b)
+                            break
                                 
         for p in people:
             if p.avatar.alive:
