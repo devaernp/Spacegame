@@ -73,13 +73,13 @@ class Avatar(Solid):
         self.projectiles = []
         self.speed = 1
         self.projectileSpeed = 5
-        self.ammo = 2
+        self.ammo = 3
         self.shield = 50.0
         self.hull = 100.0
         self.alive = True
         
     def fire(self):
-        if len(self.projectiles) <= self.ammo:
+        if len(self.projectiles) < self.ammo:
             shot = Projectile(self.centerx-2,self.centery-3,4,6)
             self.projectiles.append(shot)
             shot.launch (self.projectileSpeed,self.direction)
@@ -267,5 +267,8 @@ def main():
             
         pygame.display.update()
     
-
+if __name__ == "__main__":
+    main()
+    
+    
 
